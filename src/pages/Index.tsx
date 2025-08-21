@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SummaryTiles } from "@/components/dashboard/SummaryTiles";
 import { ChartsSection } from "@/components/dashboard/ChartsSection";
 import { ServiceCard } from "@/components/dashboard/ServiceCard";
 import { SecurityScanModal } from "@/components/dashboard/SecurityScanModal";
 import { ComponentsList } from "@/components/dashboard/ComponentsList";
+import { ConfigurationModal } from "@/components/dashboard/ConfigurationModal";
+import { useServices } from "@/contexts/ServicesContext";
 import { Search, Settings, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,14 +13,15 @@ import {
   mockSummaryData, 
   mockHealthData, 
   mockSanityData, 
-  mockVulnerabilityData, 
-  mockServices 
+  mockVulnerabilityData 
 } from "@/data/mockData";
 
 const Index = () => {
+  const { services, updateServices } = useServices();
   const [selectedScan, setSelectedScan] = useState<any>(null);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showComponentsList, setShowComponentsList] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [componentsListData, setComponentsListData] = useState<{
     title: string;
     components: string[];
@@ -44,9 +47,68 @@ const Index = () => {
     }
   };
 
-  const filteredServices = mockServices.filter(service =>
+  const filteredServices = services.filter(service =>
     service.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Generate dynamic dashboard data based on current services
+  const dashboardData = useMemo(() => {
+    const healthyServices = services.filter(s => s.status === "healthy");
+    const failedServices = services.filter(s => s.status === "failed");
+    const unreachableServices = services.filter(s => s.status === "unreachable");
+    
+    const summaryData = {
+      healthy: healthyServices.length,
+      failed: failedServices.length,
+      unreachable: unreachableServices.length,
+      sanityPassed: healthyServices.length + Math.floor(failedServices.length / 2),
+      twistlockCriticalHigh: services.reduce((sum, s) => {
+        const twistlock = s.securityScans.find(scan => scan.scanner === "Twistlock");
+        return sum + (twistlock ? twistlock.critical + twistlock.high : 0);
+      }, 0),
+      sysdigCriticalHigh: services.reduce((sum, s) => {
+        const sysdig = s.securityScans.find(scan => scan.scanner === "Sysdig");
+        return sum + (sysdig ? sysdig.critical + sysdig.high : 0);
+      }, 0),
+      uptime: services.length > 0 ? `${Math.round((healthyServices.length / services.length) * 100)}%` : "0%"
+    };
+
+    const healthData = [
+      {
+        name: "Healthy",
+        value: healthyServices.length,
+        color: "hsl(var(--status-healthy))",
+        components: healthyServices.map(s => s.name)
+      },
+      {
+        name: "Failed",
+        value: failedServices.length,
+        color: "hsl(var(--status-failed))",
+        components: failedServices.map(s => s.name)
+      },
+      {
+        name: "Unreachable",
+        value: unreachableServices.length,
+        color: "hsl(var(--status-unreachable))",
+        components: unreachableServices.map(s => s.name)
+      }
+    ];
+
+    const vulnerabilityData = services.map(service => {
+      const twistlock = service.securityScans.find(scan => scan.scanner === "Twistlock");
+      const sysdig = service.securityScans.find(scan => scan.scanner === "Sysdig");
+      
+      return {
+        component: service.name,
+        critical: (twistlock?.critical || 0) + (sysdig?.critical || 0),
+        high: (twistlock?.high || 0) + (sysdig?.high || 0),
+        medium: (twistlock?.medium || 0) + (sysdig?.medium || 0),
+        low: (twistlock?.low || 0) + (sysdig?.low || 0)
+      };
+    });
+
+    return { summaryData, healthData, vulnerabilityData };
+  }, [services]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,7 +135,7 @@ const Index = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setShowConfigModal(true)}>
                 <Settings className="w-4 h-4 mr-2" />
                 Configure
               </Button>
@@ -84,13 +146,13 @@ const Index = () => {
 
       <main className="max-w-7xl mx-auto p-6">
         {/* Summary Tiles */}
-        <SummaryTiles data={mockSummaryData} />
+        <SummaryTiles data={dashboardData.summaryData} />
 
         {/* Charts Section */}
         <ChartsSection
-          healthData={mockHealthData}
+          healthData={dashboardData.healthData}
           sanityData={mockSanityData}
-          vulnerabilityData={mockVulnerabilityData}
+          vulnerabilityData={dashboardData.vulnerabilityData}
           onPieClick={handlePieClick}
         />
 
@@ -131,6 +193,13 @@ const Index = () => {
         title={componentsListData.title}
         components={componentsListData.components}
         status={componentsListData.status}
+      />
+
+      <ConfigurationModal
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
+        services={services}
+        onServicesUpdate={updateServices}
       />
     </div>
   );
