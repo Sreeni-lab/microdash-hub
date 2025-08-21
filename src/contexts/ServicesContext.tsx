@@ -189,7 +189,7 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateService = (id: string, updates: Partial<Service>) => {
-    setServices(prev => prev.map(service => 
+    setServices(prev => prev.map(service =>
       service.id === id ? { ...service, ...updates } : service
     ));
   };
