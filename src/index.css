@@ -8,35 +8,65 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Dashboard Theme - Dark Professional */
+    --background: 223 47% 7%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 224 71% 8%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 224 71% 8%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 224 71% 8%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 217 10% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 193 76% 60%;
+    --accent-foreground: 224 71% 8%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --ring: 217 91% 60%;
 
-    --radius: 0.5rem;
+    /* Status Colors - Semantic Design System */
+    --status-healthy: 142 76% 56%;
+    --status-failed: 0 84% 60%;
+    --status-unreachable: 217 10% 65%;
+    --status-warning: 35 91% 50%;
+    --status-info: 217 91% 60%;
+    
+    /* Vulnerability Severity Colors */
+    --severity-critical: 0 84% 60%;
+    --severity-high: 25 95% 53%;
+    --severity-medium: 217 91% 60%;
+    --severity-low: 271 81% 68%;
+
+    /* Chart Colors */
+    --chart-1: 142 76% 56%;
+    --chart-2: 0 84% 60%;
+    --chart-3: 217 10% 65%;
+    --chart-4: 35 91% 50%;
+    --chart-5: 271 81% 68%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(193 76% 60%));
+    --gradient-card: linear-gradient(135deg, hsl(224 71% 8%), hsl(215 28% 17%));
+    --gradient-accent: linear-gradient(45deg, hsl(193 76% 60% / 0.1), hsl(217 91% 60% / 0.1));
+
+    /* Shadows */
+    --shadow-card: 0 4px 12px hsl(224 71% 4% / 0.4);
+    --shadow-elevated: 0 8px 24px hsl(224 71% 4% / 0.6);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
