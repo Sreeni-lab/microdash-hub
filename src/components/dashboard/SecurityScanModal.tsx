@@ -30,10 +30,10 @@ interface SecurityScanModalProps {
   containerName?: string;
 }
 
-export function SecurityScanModal({ 
-  isOpen, 
-  onClose, 
-  scan, 
+export function SecurityScanModal({
+  isOpen,
+  onClose,
+  scan,
   serviceName = "Admin Console",
   containerName = "nginx:1.21-alpine"
 }: SecurityScanModalProps) {
@@ -187,12 +187,6 @@ export function SecurityScanModal({
 
           {/* Actions */}
           <div className="flex gap-3 pt-4">
-            <Button className="flex-1" asChild>
-              <a href={scan.reportUrl || "#"} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Open Full Report
-              </a>
-            </Button>
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>

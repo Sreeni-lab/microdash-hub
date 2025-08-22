@@ -7,6 +7,8 @@ export interface Service {
   version: string;
   serviceUrl: string;
   credentialsUrl: string;
+  username?: string;
+  password?: string;
   containerImages: Array<{
     name: string;
     size: string;
@@ -41,44 +43,77 @@ const ServicesContext = createContext<ServicesContextType | undefined>(undefined
 const defaultServices: Service[] = [
   {
     id: "1",
-    name: "Admin Console",
+    name: "Sample App",
     status: "healthy",
-    version: "v25.4.0",
-    serviceUrl: "https://admin.example.com",
-    credentialsUrl: "https://creds.example.com/admin",
+    version: "v1.0.0",
+    serviceUrl: "https://sampleapp.example.com",
+    credentialsUrl: "https://creds.example.com/sampleapp",
+    username: "sampleuser",
+    password: "samplepass123",
     containerImages: [
       {
         name: "nginx:1.21-alpine",
         size: "420MB",
         efficiency: "74%"
+      },
+      {
+        name: "redis:7.0-alpine",
+        size: "120MB",
+        efficiency: "88%"
       }
     ],
     securityScans: [
       {
         scanner: "Twistlock",
-        totalVulnerabilities: 99,
-        critical: 29,
-        high: 13,
-        medium: 30,
-        low: 27,
+        totalVulnerabilities: 45,
+        critical: 12,
+        high: 8,
+        medium: 15,
+        low: 10,
         riskScore: "High Risk",
         scanStatus: "completed",
-        lastScan: "2024-01-15",
-        scanDuration: "2m 34s",
-        reportUrl: "https://twistlock.example.com/reports/admin-console"
+        lastScan: "2024-08-01",
+        scanDuration: "1m 20s",
+        reportUrl: "https://twistlock.example.com/reports/nginx"
       },
       {
         scanner: "Sysdig",
-        totalVulnerabilities: 53,
-        critical: 10,
-        high: 15,
-        medium: 8,
-        low: 20,
+        totalVulnerabilities: 30,
+        critical: 5,
+        high: 7,
+        medium: 10,
+        low: 8,
         riskScore: "Medium Risk",
         scanStatus: "completed",
-        lastScan: "2024-01-15",
-        scanDuration: "1m 45s",
-        reportUrl: "https://sysdig.example.com/reports/admin-console"
+        lastScan: "2024-08-01",
+        scanDuration: "1m 10s",
+        reportUrl: "https://sysdig.example.com/reports/nginx"
+      },
+      {
+        scanner: "Twistlock",
+        totalVulnerabilities: 20,
+        critical: 3,
+        high: 2,
+        medium: 10,
+        low: 5,
+        riskScore: "Low Risk",
+        scanStatus: "completed",
+        lastScan: "2024-08-01",
+        scanDuration: "0m 50s",
+        reportUrl: "https://twistlock.example.com/reports/redis"
+      },
+      {
+        scanner: "Sysdig",
+        totalVulnerabilities: 15,
+        critical: 1,
+        high: 2,
+        medium: 7,
+        low: 5,
+        riskScore: "Low Risk",
+        scanStatus: "completed",
+        lastScan: "2024-08-01",
+        scanDuration: "0m 40s",
+        reportUrl: "https://sysdig.example.com/reports/redis"
       }
     ]
   },
@@ -87,8 +122,10 @@ const defaultServices: Service[] = [
     name: "AWG",
     status: "healthy",
     version: "v25.4.0",
-    serviceUrl: "https://awg.example.com",
+    serviceUrl: "https://google.com",
     credentialsUrl: "https://creds.example.com/awg",
+    username: "awguser",
+    password: "awgpass5678",
     containerImages: [
       {
         name: "nginx:1.21",
@@ -128,6 +165,8 @@ const defaultServices: Service[] = [
     version: "v25.4.0",
     serviceUrl: "https://bps.example.com",
     credentialsUrl: "https://creds.example.com/bps",
+    username: "bpsuser",
+    password: "bpspass9012",
     containerImages: [
       {
         name: "openjdk:11-jre-slim",
@@ -163,10 +202,33 @@ const defaultServices: Service[] = [
 ];
 
 export const ServicesProvider = ({ children }: { children: ReactNode }) => {
+
   const [services, setServices] = useState<Service[]>(() => {
     const saved = localStorage.getItem('dashboard-services');
     return saved ? JSON.parse(saved) : defaultServices;
   });
+
+  // Check each service's URL and update status accordingly
+  useEffect(() => {
+    const checkServicesHealth = async () => {
+      const updated = await Promise.all(services.map(async (service) => {
+        try {
+          const res = await fetch(`http://localhost:3001/api/health-check?url=${encodeURIComponent(service.serviceUrl)}`);
+          const data = await res.json();
+          if (data.status === 200) {
+            return { ...service, status: 'healthy' as 'healthy' };
+          } else {
+            return { ...service, status: 'unreachable' as 'unreachable' };
+          }
+        } catch {
+          return { ...service, status: 'unreachable' as 'unreachable' };
+        }
+      }));
+      setServices(updated);
+      localStorage.setItem('dashboard-services', JSON.stringify(updated));
+    };
+    checkServicesHealth();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('dashboard-services', JSON.stringify(services));

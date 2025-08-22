@@ -4,24 +4,14 @@ import { ChartsSection } from "@/components/dashboard/ChartsSection";
 import { ServiceCard } from "@/components/dashboard/ServiceCard";
 import { SecurityScanModal } from "@/components/dashboard/SecurityScanModal";
 import { ComponentsList } from "@/components/dashboard/ComponentsList";
-import { ConfigurationModal } from "@/components/dashboard/ConfigurationModal";
 import { useServices } from "@/contexts/ServicesContext";
-import { Search, Settings, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { 
-  mockSummaryData, 
-  mockHealthData, 
-  mockSanityData, 
-  mockVulnerabilityData 
-} from "@/data/mockData";
-
 const Index = () => {
-  const { services, updateServices } = useServices();
+  const { services } = useServices();
   const [selectedScan, setSelectedScan] = useState<any>(null);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showComponentsList, setShowComponentsList] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
   const [componentsListData, setComponentsListData] = useState<{
     title: string;
     components: string[];
@@ -39,9 +29,9 @@ const Index = () => {
       setComponentsListData({
         title: data.name,
         components: data.components,
-        status: data.name.toLowerCase().includes('pass') ? 'passed' : 
-               data.name.toLowerCase().includes('fail') ? 'failed' :
-               data.name.toLowerCase().includes('unreachable') ? 'unreachable' : 'healthy'
+        status: data.name.toLowerCase().includes('pass') ? 'passed' :
+          data.name.toLowerCase().includes('fail') ? 'failed' :
+            data.name.toLowerCase().includes('unreachable') ? 'unreachable' : 'healthy'
       });
       setShowComponentsList(true);
     }
@@ -56,19 +46,28 @@ const Index = () => {
     const healthyServices = services.filter(s => s.status === "healthy");
     const failedServices = services.filter(s => s.status === "failed");
     const unreachableServices = services.filter(s => s.status === "unreachable");
-    
+
+    function getUniqueScans(scans) {
+      const seen = new Set();
+      return scans.filter(scan => {
+        const key = `${scan.scanner}-${scan.reportUrl || ''}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
     const summaryData = {
       healthy: healthyServices.length,
       failed: failedServices.length,
       unreachable: unreachableServices.length,
       sanityPassed: healthyServices.length + Math.floor(failedServices.length / 2),
       twistlockCriticalHigh: services.reduce((sum, s) => {
-        const twistlock = s.securityScans.find(scan => scan.scanner === "Twistlock");
-        return sum + (twistlock ? twistlock.critical + twistlock.high : 0);
+        // Sum all unique Twistlock scans for all images
+        return sum + getUniqueScans(s.securityScans.filter(scan => scan.scanner === "Twistlock")).reduce((imgSum, scan) => imgSum + scan.critical + scan.high, 0);
       }, 0),
       sysdigCriticalHigh: services.reduce((sum, s) => {
-        const sysdig = s.securityScans.find(scan => scan.scanner === "Sysdig");
-        return sum + (sysdig ? sysdig.critical + sysdig.high : 0);
+        // Sum all unique Sysdig scans for all images
+        return sum + getUniqueScans(s.securityScans.filter(scan => scan.scanner === "Sysdig")).reduce((imgSum, scan) => imgSum + scan.critical + scan.high, 0);
       }, 0),
       uptime: services.length > 0 ? `${Math.round((healthyServices.length / services.length) * 100)}%` : "0%"
     };
@@ -95,15 +94,15 @@ const Index = () => {
     ];
 
     const vulnerabilityData = services.map(service => {
-      const twistlock = service.securityScans.find(scan => scan.scanner === "Twistlock");
-      const sysdig = service.securityScans.find(scan => scan.scanner === "Sysdig");
-      
+      // Sum all unique scans for all images for each scanner
+      const twistlockScans = getUniqueScans(service.securityScans.filter(scan => scan.scanner === "Twistlock"));
+      const sysdigScans = getUniqueScans(service.securityScans.filter(scan => scan.scanner === "Sysdig"));
       return {
         component: service.name,
-        critical: (twistlock?.critical || 0) + (sysdig?.critical || 0),
-        high: (twistlock?.high || 0) + (sysdig?.high || 0),
-        medium: (twistlock?.medium || 0) + (sysdig?.medium || 0),
-        low: (twistlock?.low || 0) + (sysdig?.low || 0)
+        critical: twistlockScans.reduce((sum, scan) => sum + scan.critical, 0) + sysdigScans.reduce((sum, scan) => sum + scan.critical, 0),
+        high: twistlockScans.reduce((sum, scan) => sum + scan.high, 0) + sysdigScans.reduce((sum, scan) => sum + scan.high, 0),
+        medium: twistlockScans.reduce((sum, scan) => sum + scan.medium, 0) + sysdigScans.reduce((sum, scan) => sum + scan.medium, 0),
+        low: twistlockScans.reduce((sum, scan) => sum + scan.low, 0) + sysdigScans.reduce((sum, scan) => sum + scan.low, 0)
       };
     });
 
@@ -135,10 +134,7 @@ const Index = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Button variant="outline" size="sm" onClick={() => setShowConfigModal(true)}>
-                <Settings className="w-4 h-4 mr-2" />
-                Configure
-              </Button>
+              {/* Configure button removed */}
             </div>
           </div>
         </div>
@@ -151,7 +147,7 @@ const Index = () => {
         {/* Charts Section */}
         <ChartsSection
           healthData={dashboardData.healthData}
-          sanityData={mockSanityData}
+          sanityData={[]}
           vulnerabilityData={dashboardData.vulnerabilityData}
           onPieClick={handlePieClick}
         />
@@ -166,6 +162,8 @@ const Index = () => {
               version={service.version}
               serviceUrl={service.serviceUrl}
               credentialsUrl={service.credentialsUrl}
+              username={service.username}
+              password={service.password}
               containerImages={service.containerImages}
               securityScans={service.securityScans}
               onViewScanDetails={handleViewScanDetails}
@@ -195,12 +193,7 @@ const Index = () => {
         status={componentsListData.status}
       />
 
-      <ConfigurationModal
-        isOpen={showConfigModal}
-        onClose={() => setShowConfigModal(false)}
-        services={services}
-        onServicesUpdate={updateServices}
-      />
+      {/* ConfigurationModal removed */}
     </div>
   );
 };
