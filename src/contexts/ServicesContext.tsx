@@ -43,6 +43,47 @@ const ServicesContext = createContext<ServicesContextType | undefined>(undefined
 const defaultServices: Service[] = [
   {
     id: "1",
+    name: "Admin Console",
+    status: "unreachable",
+    version: "v25.4.0",
+    serviceUrl: "https://adminconsole.example.com",
+    credentialsUrl: "https://creds.example.com/adminconsole",
+    username: "adminuser",
+    password: "adminpass123",
+    containerImages: [
+      {
+        name: "nginx:1.21-alpine",
+        size: "420MB",
+        efficiency: "74%"
+      }
+    ],
+    securityScans: [
+      {
+        scanner: "Twistlock",
+        totalVulnerabilities: 29,
+        critical: 13,
+        high: 30,
+        medium: 27,
+        low: 42,
+        riskScore: "High Risk",
+        scanStatus: "completed",
+        lastScan: "2024-01-15"
+      },
+      {
+        scanner: "Sysdig",
+        totalVulnerabilities: 10,
+        critical: 15,
+        high: 8,
+        medium: 20,
+        low: 25,
+        riskScore: "Medium Risk",
+        scanStatus: "completed",
+        lastScan: "2024-01-15"
+      }
+    ]
+  },
+  {
+    id: "4",
     name: "Sample App",
     status: "healthy",
     version: "v1.0.0",
@@ -203,10 +244,7 @@ const defaultServices: Service[] = [
 
 export const ServicesProvider = ({ children }: { children: ReactNode }) => {
 
-  const [services, setServices] = useState<Service[]>(() => {
-    const saved = localStorage.getItem('dashboard-services');
-    return saved ? JSON.parse(saved) : defaultServices;
-  });
+  const [services, setServices] = useState<Service[]>(defaultServices);
 
   // Check each service's URL and update status accordingly
   useEffect(() => {
@@ -225,14 +263,9 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
         }
       }));
       setServices(updated);
-      localStorage.setItem('dashboard-services', JSON.stringify(updated));
     };
     checkServicesHealth();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('dashboard-services', JSON.stringify(services));
-  }, [services]);
 
   const updateServices = (newServices: Service[]) => {
     setServices(newServices);

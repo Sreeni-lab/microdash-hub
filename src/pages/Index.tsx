@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SummaryTiles } from "@/components/dashboard/SummaryTiles";
 import { ChartsSection } from "@/components/dashboard/ChartsSection";
 import { ServiceCard } from "@/components/dashboard/ServiceCard";
@@ -8,6 +8,17 @@ import { useServices } from "@/contexts/ServicesContext";
 import { Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 const Index = () => {
+  type ScannerCounts = {
+    [component: string]: {
+      critical: number;
+      high: number;
+      medium: number;
+      low: number;
+    };
+  };
+  const [twistlockCounts, setTwistlockCounts] = useState<ScannerCounts>({});
+  const [sysdigCounts, setSysdigCounts] = useState<ScannerCounts>({});
+
   const { services } = useServices();
   const [selectedScan, setSelectedScan] = useState<any>(null);
   const [showScanModal, setShowScanModal] = useState(false);
@@ -41,7 +52,59 @@ const Index = () => {
     service.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Fetch Twistlock and Sysdig counts after services is available
+  useEffect(() => {
+    async function fetchScannerCounts() {
+      const twistlockResults: ScannerCounts = {};
+      const sysdigResults: ScannerCounts = {};
+      await Promise.all(
+        services.map(async (service) => {
+          try {
+            const twistlockRes = await fetch(`https://sampleapi.com/twistlock/${service.name}/counts`);
+            const twistlockData = await twistlockRes.json();
+            twistlockResults[service.name] = twistlockData;
+          } catch {
+            twistlockResults[service.name] = { critical: 0, high: 0, medium: 0, low: 0 };
+          }
+          try {
+            const sysdigRes = await fetch(`https://sampleapi.com/sysdig/${service.name}/counts`);
+            const sysdigData = await sysdigRes.json();
+            sysdigResults[service.name] = sysdigData;
+          } catch {
+            sysdigResults[service.name] = { critical: 0, high: 0, medium: 0, low: 0 };
+          }
+        })
+      );
+      setTwistlockCounts(twistlockResults);
+      setSysdigCounts(sysdigResults);
+    }
+    if (services.length > 0) {
+      fetchScannerCounts();
+    }
+  }, [services]);
+
   // Generate dynamic dashboard data based on current services
+  const [sanityResults, setSanityResults] = useState({
+    sanityPassed: 0,
+    sanityFailed: 0,
+    sanityPending: 0
+  });
+
+  useEffect(() => {
+    fetch('https://sampleapi.com/sanity-results')
+      .then(res => res.json())
+      .then(data => {
+        setSanityResults({
+          sanityPassed: data.sanityPassed,
+          sanityFailed: data.sanityFailed,
+          sanityPending: data.sanityPending
+        });
+      })
+      .catch(() => {
+        setSanityResults({ sanityPassed: 0, sanityFailed: 0, sanityPending: 0 });
+      });
+  }, []);
+
   const dashboardData = useMemo(() => {
     const healthyServices = services.filter(s => s.status === "healthy");
     const failedServices = services.filter(s => s.status === "failed");
@@ -60,16 +123,10 @@ const Index = () => {
       healthy: healthyServices.length,
       failed: failedServices.length,
       unreachable: unreachableServices.length,
-      sanityPassed: healthyServices.length + Math.floor(failedServices.length / 2),
-      twistlockCriticalHigh: services.reduce((sum, s) => {
-        // Sum all unique Twistlock scans for all images
-        return sum + getUniqueScans(s.securityScans.filter(scan => scan.scanner === "Twistlock")).reduce((imgSum, scan) => imgSum + scan.critical + scan.high, 0);
-      }, 0),
-      sysdigCriticalHigh: services.reduce((sum, s) => {
-        // Sum all unique Sysdig scans for all images
-        return sum + getUniqueScans(s.securityScans.filter(scan => scan.scanner === "Sysdig")).reduce((imgSum, scan) => imgSum + scan.critical + scan.high, 0);
-      }, 0),
-      uptime: services.length > 0 ? `${Math.round((healthyServices.length / services.length) * 100)}%` : "0%"
+      sanityPassed: sanityResults.sanityPassed,
+      sanityFailed: sanityResults.sanityFailed,
+      twistlockCriticalHigh: Object.values(twistlockCounts).reduce((sum, c) => sum + (c?.critical ?? 0) + (c?.high ?? 0), 0),
+      sysdigCriticalHigh: Object.values(sysdigCounts).reduce((sum, c) => sum + (c?.critical ?? 0) + (c?.high ?? 0), 0)
     };
 
     const healthData = [
@@ -94,20 +151,20 @@ const Index = () => {
     ];
 
     const vulnerabilityData = services.map(service => {
-      // Sum all unique scans for all images for each scanner
-      const twistlockScans = getUniqueScans(service.securityScans.filter(scan => scan.scanner === "Twistlock"));
-      const sysdigScans = getUniqueScans(service.securityScans.filter(scan => scan.scanner === "Sysdig"));
+      // Use fetched counts from APIs
+      const twistlock = twistlockCounts[service.name] ?? { critical: 0, high: 0, medium: 0, low: 0 };
+      const sysdig = sysdigCounts[service.name] ?? { critical: 0, high: 0, medium: 0, low: 0 };
       return {
         component: service.name,
-        critical: twistlockScans.reduce((sum, scan) => sum + scan.critical, 0) + sysdigScans.reduce((sum, scan) => sum + scan.critical, 0),
-        high: twistlockScans.reduce((sum, scan) => sum + scan.high, 0) + sysdigScans.reduce((sum, scan) => sum + scan.high, 0),
-        medium: twistlockScans.reduce((sum, scan) => sum + scan.medium, 0) + sysdigScans.reduce((sum, scan) => sum + scan.medium, 0),
-        low: twistlockScans.reduce((sum, scan) => sum + scan.low, 0) + sysdigScans.reduce((sum, scan) => sum + scan.low, 0)
+        critical: (twistlock.critical ?? 0) + (sysdig.critical ?? 0),
+        high: (twistlock.high ?? 0) + (sysdig.high ?? 0),
+        medium: (twistlock.medium ?? 0) + (sysdig.medium ?? 0),
+        low: (twistlock.low ?? 0) + (sysdig.low ?? 0)
       };
     });
 
     return { summaryData, healthData, vulnerabilityData };
-  }, [services]);
+  }, [services, sanityResults]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,6 +223,8 @@ const Index = () => {
               password={service.password}
               containerImages={service.containerImages}
               securityScans={service.securityScans}
+              twistlockCounts={twistlockCounts[service.name]}
+              sysdigCounts={sysdigCounts[service.name]}
               onViewScanDetails={handleViewScanDetails}
             />
           ))}

@@ -14,9 +14,9 @@ interface SummaryTilesProps {
     failed: number;
     unreachable: number;
     sanityPassed: number;
+    sanityFailed: number;
     twistlockCriticalHigh: number;
     sysdigCriticalHigh: number;
-    uptime: string;
   };
 }
 
@@ -47,6 +47,12 @@ export function SummaryTiles({ data }: SummaryTilesProps) {
       icon: <Shield className="w-5 h-5" />
     },
     {
+      label: "Failed Sanity Tests",
+      value: data.sanityFailed,
+      status: "failed",
+      icon: <XCircle className="w-5 h-5" />
+    },
+    {
       label: "Twistlock C+H",
       value: data.twistlockCriticalHigh,
       status: "warning",
@@ -57,12 +63,6 @@ export function SummaryTiles({ data }: SummaryTilesProps) {
       value: data.sysdigCriticalHigh,
       status: "info",
       icon: <Shield className="w-5 h-5" />
-    },
-    {
-      label: "Uptime",
-      value: data.uptime,
-      status: "info",
-      icon: <Clock className="w-5 h-5" />
     }
   ];
 

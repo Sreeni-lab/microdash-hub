@@ -33,6 +33,18 @@ interface ServiceCardProps {
   password?: string;
   containerImages: ContainerImage[];
   securityScans: SecurityScan[];
+  twistlockCounts?: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  sysdigCounts?: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
   onViewScanDetails?: (scan: SecurityScan) => void;
 }
 
@@ -46,6 +58,8 @@ export function ServiceCard({
   password,
   containerImages,
   securityScans,
+  twistlockCounts,
+  sysdigCounts,
   onViewScanDetails
 }: ServiceCardProps) {
   const [showCreds, setShowCreds] = useState(false);
@@ -102,21 +116,56 @@ export function ServiceCard({
   };
 
   // Helper to get scans for a given image (match by reportUrl or add imageName to scan if needed)
+  // If API counts are available, use them for display instead of local scan data
   const getScansForImage = (image: ContainerImage) => {
-    const baseName = image.name.split(':')[0].toLowerCase();
-    // If only one image, show all scans (for legacy data without reportUrl)
-    if (containerImages.length === 1) {
-      return securityScans;
+    const scans: SecurityScan[] = [];
+    if (twistlockCounts) {
+      scans.push({
+        scanner: 'Twistlock',
+        totalVulnerabilities: (twistlockCounts.critical ?? 0) + (twistlockCounts.high ?? 0) + (twistlockCounts.medium ?? 0) + (twistlockCounts.low ?? 0),
+        critical: twistlockCounts.critical ?? 0,
+        high: twistlockCounts.high ?? 0,
+        medium: twistlockCounts.medium ?? 0,
+        low: twistlockCounts.low ?? 0,
+        riskScore: 'N/A',
+        scanStatus: 'completed',
+        lastScan: '',
+        reportUrl: ''
+      });
     }
-    // Otherwise, match by reportUrl
-    return securityScans.filter(scan => {
-      if (!scan.reportUrl) return false;
-      const urlParts = scan.reportUrl.split('/');
-      const reportImage = urlParts[urlParts.length - 1].toLowerCase();
-      return reportImage === baseName;
-    });
+    if (sysdigCounts) {
+      scans.push({
+        scanner: 'Sysdig',
+        totalVulnerabilities: (sysdigCounts.critical ?? 0) + (sysdigCounts.high ?? 0) + (sysdigCounts.medium ?? 0) + (sysdigCounts.low ?? 0),
+        critical: sysdigCounts.critical ?? 0,
+        high: sysdigCounts.high ?? 0,
+        medium: sysdigCounts.medium ?? 0,
+        low: sysdigCounts.low ?? 0,
+        riskScore: 'N/A',
+        scanStatus: 'completed',
+        lastScan: '',
+        reportUrl: ''
+      });
+    }
+    // If no API counts, fallback to local scan data
+    if (scans.length === 0) {
+      const baseName = image.name.split(':')[0].toLowerCase();
+      if (containerImages.length === 1) {
+        return securityScans;
+      }
+      return securityScans.filter(scan => {
+        if (!scan.reportUrl) return false;
+        const urlParts = scan.reportUrl.split('/');
+        const reportImage = urlParts[urlParts.length - 1].toLowerCase();
+        return reportImage === baseName;
+      });
+    }
+    return scans;
   };
 
+  // ...existing code...
+  // Example usage: Display API counts for Twistlock and Sysdig
+  // You can style or position these as needed in your UI
   return (
     <Card id={`service-card-${name.replace(/\s+/g, '-')}`} className="bg-gradient-card shadow-card border-border/50 hover:shadow-elevated transition-all duration-300 relative">
       <CardHeader className="pb-4">

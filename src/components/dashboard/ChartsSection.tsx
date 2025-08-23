@@ -104,24 +104,24 @@ export function ChartsSection({ healthData, sanityData, vulnerabilityData, onPie
   // Example: Fetch sanity test counts from API and update pie chart dynamically
   // Replace the URL and response mapping as per your backend
   const [sanityPieData, setSanityPieData] = React.useState([
-    { name: "Passed", value: Math.floor(Math.random() * 50) + 50, color: "#22c55e" },
-    { name: "Failed", value: Math.floor(Math.random() * 20) + 10, color: "#ef4444" },
-    { name: "Pending", value: Math.floor(Math.random() * 10) + 5, color: "#fbbf24" },
+    { name: "Passed", value: 0, color: "#22c55e" },
+    { name: "Failed", value: 0, color: "#ef4444" },
+    { name: "Pending", value: 0, color: "#fbbf24" },
   ]);
 
   React.useEffect(() => {
-    // Example API call (replace with your actual endpoint)
-    // fetch('/api/sanity-counts')
-    //   .then(res => res.json())
-    //   .then(data => {
-    //     // Map API response to pie chart data format
-    //     setSanityPieData([
-    //       { name: 'Passed', value: data.passed, color: '#22c55e' },
-    //       { name: 'Failed', value: data.failed, color: '#ef4444' },
-    //       { name: 'Pending', value: data.pending, color: '#fbbf24' },
-    //     ]);
-    //   });
-    // Uncomment above and update endpoint/response mapping as needed
+    fetch('https://sampleapi.com/sanity-results')
+      .then(res => res.json())
+      .then(data => {
+        setSanityPieData([
+          { name: 'Passed', value: data.sanityPassed, color: '#22c55e' },
+          { name: 'Failed', value: data.sanityFailed, color: '#ef4444' },
+          { name: 'Pending', value: data.sanityPending, color: '#fbbf24' },
+        ]);
+      })
+      .catch(() => {
+        // fallback: keep zeros or show error
+      });
   }, []);
 
   return (
