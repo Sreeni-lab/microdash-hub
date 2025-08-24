@@ -244,27 +244,15 @@ const defaultServices: Service[] = [
 
 export const ServicesProvider = ({ children }: { children: ReactNode }) => {
 
-  const [services, setServices] = useState<Service[]>(defaultServices);
+  const [services, setServices] = useState<Service[]>([]);
 
-  // Check each service's URL and update status accordingly
+  // Fetch services from backend API on mount
   useEffect(() => {
-    const checkServicesHealth = async () => {
-      const updated = await Promise.all(services.map(async (service) => {
-        try {
-          const res = await fetch(`http://localhost:3001/api/health-check?url=${encodeURIComponent(service.serviceUrl)}`);
-          const data = await res.json();
-          if (data.status === 200) {
-            return { ...service, status: 'healthy' as 'healthy' };
-          } else {
-            return { ...service, status: 'unreachable' as 'unreachable' };
-          }
-        } catch {
-          return { ...service, status: 'unreachable' as 'unreachable' };
-        }
-      }));
-      setServices(updated);
-    };
-    checkServicesHealth();
+    fetch('http://localhost:3001/api/services')
+      .then(res => res.json())
+      .then(data => {
+        setServices(data);
+      });
   }, []);
 
   const updateServices = (newServices: Service[]) => {

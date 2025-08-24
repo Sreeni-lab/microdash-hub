@@ -8,6 +8,9 @@ interface ContainerImage {
   name: string;
   size: string;
   efficiency: string;
+  version?: string;
+  twistlockReportUrl?: string;
+  sysdigReportUrl?: string;
 }
 
 interface SecurityScan {
@@ -21,6 +24,7 @@ interface SecurityScan {
   scanStatus: 'completed' | 'failed' | 'running';
   lastScan: string;
   reportUrl?: string;
+  link?: string;
 }
 
 interface ServiceCardProps {
@@ -45,24 +49,17 @@ interface ServiceCardProps {
     medium: number;
     low: number;
   };
-  onViewScanDetails?: (scan: SecurityScan) => void;
+  reportUrl?: string;
+  twistlockReportUrl?: string;
+  sysdigReportUrl?: string;
+  onViewScanDetails?: (args: { scan: SecurityScan; serviceName: string; containerImages: string[] }) => void;
+  twistlockVulnerabilityData?: any[];
+  sysdigVulnerabilityData?: any[];
 }
 
-export function ServiceCard({
-  name,
-  status,
-  version,
-  serviceUrl,
-  credentialsUrl,
-  username,
-  password,
-  containerImages,
-  securityScans,
-  twistlockCounts,
-  sysdigCounts,
-  onViewScanDetails
-}: ServiceCardProps) {
+export function ServiceCard(props: ServiceCardProps) {
   const [showCreds, setShowCreds] = useState(false);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
@@ -75,6 +72,23 @@ export function ServiceCard({
         return 'bg-muted text-muted-foreground';
     }
   };
+  const {
+    name,
+    status,
+    version,
+    serviceUrl,
+    credentialsUrl,
+    username,
+    password,
+    containerImages,
+    securityScans,
+    twistlockCounts,
+    sysdigCounts,
+    reportUrl,
+    twistlockReportUrl,
+    sysdigReportUrl,
+    onViewScanDetails
+  } = props;
 
   const getScanStatusColor = (status: string) => {
     switch (status) {
@@ -118,36 +132,82 @@ export function ServiceCard({
   // Helper to get scans for a given image (match by reportUrl or add imageName to scan if needed)
   // If API counts are available, use them for display instead of local scan data
   const getScansForImage = (image: ContainerImage) => {
+    // If no scan data found, fallback to group summary
     const scans: SecurityScan[] = [];
-    if (twistlockCounts) {
+    // Match full image name (including registry and tag) for exact match
+    const getImageKey = (img) => (typeof img === 'string' ? img : '');
+    let twistlockScan = null;
+    let sysdigScan = null;
+    if (props.twistlockVulnerabilityData) {
+      twistlockScan = props.twistlockVulnerabilityData.find(item => item && item.image && getImageKey(item.image) === getImageKey(image.name));
+    }
+    if (props.sysdigVulnerabilityData) {
+      sysdigScan = props.sysdigVulnerabilityData.find(item => item && item.image && getImageKey(item.image) === getImageKey(image.name));
+    }
+    // Only use API values if scan.summary is defined, otherwise fallback
+    if (twistlockScan && twistlockScan.summary) {
       scans.push({
         scanner: 'Twistlock',
-        totalVulnerabilities: (twistlockCounts.critical ?? 0) + (twistlockCounts.high ?? 0) + (twistlockCounts.medium ?? 0) + (twistlockCounts.low ?? 0),
-        critical: twistlockCounts.critical ?? 0,
-        high: twistlockCounts.high ?? 0,
-        medium: twistlockCounts.medium ?? 0,
-        low: twistlockCounts.low ?? 0,
+        totalVulnerabilities: (twistlockScan.summary.critical ?? 0) + (twistlockScan.summary.high ?? 0) + (twistlockScan.summary.medium ?? 0) + (twistlockScan.summary.low ?? 0),
+        critical: twistlockScan.summary.critical ?? 0,
+        high: twistlockScan.summary.high ?? 0,
+        medium: twistlockScan.summary.medium ?? 0,
+        low: twistlockScan.summary.low ?? 0,
         riskScore: 'N/A',
         scanStatus: 'completed',
         lastScan: '',
-        reportUrl: ''
+        reportUrl: twistlockScan.link || '',
+        link: twistlockScan.link || ''
       });
     }
-    if (sysdigCounts) {
+    if (sysdigScan && sysdigScan.summary) {
       scans.push({
         scanner: 'Sysdig',
-        totalVulnerabilities: (sysdigCounts.critical ?? 0) + (sysdigCounts.high ?? 0) + (sysdigCounts.medium ?? 0) + (sysdigCounts.low ?? 0),
-        critical: sysdigCounts.critical ?? 0,
-        high: sysdigCounts.high ?? 0,
-        medium: sysdigCounts.medium ?? 0,
-        low: sysdigCounts.low ?? 0,
+        totalVulnerabilities: (sysdigScan.summary.critical ?? 0) + (sysdigScan.summary.high ?? 0) + (sysdigScan.summary.medium ?? 0) + (sysdigScan.summary.low ?? 0),
+        critical: sysdigScan.summary.critical ?? 0,
+        high: sysdigScan.summary.high ?? 0,
+        medium: sysdigScan.summary.medium ?? 0,
+        low: sysdigScan.summary.low ?? 0,
         riskScore: 'N/A',
         scanStatus: 'completed',
         lastScan: '',
-        reportUrl: ''
+        reportUrl: sysdigScan.link || '',
+        link: sysdigScan.link || ''
       });
     }
-    // If no API counts, fallback to local scan data
+    // If no scan data found, fallback to group summary
+    if (scans.length === 0) {
+      if (twistlockCounts) {
+        scans.push({
+          scanner: 'Twistlock',
+          totalVulnerabilities: (twistlockCounts.critical ?? 0) + (twistlockCounts.high ?? 0) + (twistlockCounts.medium ?? 0) + (twistlockCounts.low ?? 0),
+          critical: twistlockCounts.critical ?? 0,
+          high: twistlockCounts.high ?? 0,
+          medium: twistlockCounts.medium ?? 0,
+          low: twistlockCounts.low ?? 0,
+          riskScore: 'N/A',
+          scanStatus: 'completed',
+          lastScan: '',
+          reportUrl: '',
+          link: ''
+        });
+      }
+      if (sysdigCounts) {
+        scans.push({
+          scanner: 'Sysdig',
+          totalVulnerabilities: (sysdigCounts.critical ?? 0) + (sysdigCounts.high ?? 0) + (sysdigCounts.medium ?? 0) + (sysdigCounts.low ?? 0),
+          critical: sysdigCounts.critical ?? 0,
+          high: sysdigCounts.high ?? 0,
+          medium: sysdigCounts.medium ?? 0,
+          low: sysdigCounts.low ?? 0,
+          riskScore: 'N/A',
+          scanStatus: 'completed',
+          lastScan: '',
+          reportUrl: '',
+          link: ''
+        });
+      }
+    }
     if (scans.length === 0) {
       const baseName = image.name.split(':')[0].toLowerCase();
       if (containerImages.length === 1) {
@@ -178,7 +238,7 @@ export function ServiceCard({
           </div>
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="text-accent font-medium">{version}</span>
+          {/* Version removed for Documentum Reports and all service cards */}
           <div className="flex gap-2">
             {serviceUrl && (
               <Button variant="outline" size="sm" asChild>
@@ -188,7 +248,7 @@ export function ServiceCard({
                 </a>
               </Button>
             )}
-            {username && password && (
+            {username && password && username !== 'NA' && password !== 'NA' && (
               <>
                 <Button variant="outline" size="sm" onClick={() => setShowCreds((v) => !v)}>
                   <Eye className="w-3 h-3 mr-1" />
@@ -206,13 +266,13 @@ export function ServiceCard({
                         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 4.5L4.5 13.5M4.5 4.5L13.5 13.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                       </Button>
                     </div>
-                    <div className="flex font-semibold border-b pb-1 mb-1">
-                      <div className="w-1/2">Username</div>
-                      <div className="w-1/2">Password</div>
+                    <div className="grid grid-cols-2 gap-2 font-semibold border-b pb-1 mb-1">
+                      <div className="text-left">Username</div>
+                      <div className="text-left">Password</div>
                     </div>
-                    <div className="flex mb-1">
-                      <div className="w-1/2 font-mono">{username ?? 'NA'}</div>
-                      <div className="w-1/2 font-mono">{password ?? 'NA'}</div>
+                    <div className="grid grid-cols-2 gap-2 mb-1">
+                      <div className="font-mono break-all">{username ?? 'NA'}</div>
+                      <div className="font-mono break-all">{password ?? 'NA'}</div>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">• {username ? name + ' user' : 'NA'}</div>
                   </div>
@@ -229,12 +289,28 @@ export function ServiceCard({
           <h4 className="font-semibold mb-2 text-sm">Container Images ({containerImages.length})</h4>
           <div className="space-y-2">
             {/* Only render expanded image tiles, except the first which is always shown */}
-            {containerImages.map((image, index) => (
-              (index === 0 || expandedImages[index]) && (
+            {containerImages.map((image, index) => {
+              if (!(index === 0 || expandedImages[index])) return null;
+              let imageVersion = image.version || '';
+              if (name === 'Documentum Reports') {
+                if (Array.isArray(version)) {
+                  imageVersion = version[index] || '';
+                } else if (typeof version === 'string') {
+                  imageVersion = version.split(',')[index]?.trim() || '';
+                }
+              }
+              // Show only the last part after the last forward slash
+              const displayImageName = image.name.split('/').pop();
+              return (
                 <div key={index} className="bg-background/50 rounded border p-2 mb-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium text-sm">{image.name}</div>
+                      <div className="font-medium text-sm">
+                        {displayImageName}
+                        {imageVersion && (
+                          <span className="ml-2 text-xs text-muted-foreground">v{imageVersion}</span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         Efficiency: {image.efficiency} • Size: {image.size}
                       </div>
@@ -245,7 +321,7 @@ export function ServiceCard({
                       <div
                         key={scanIdx}
                         className="p-3 bg-background/30 rounded border cursor-pointer transition-all duration-200 hover:bg-accent/20 hover:border-accent"
-                        onClick={() => onViewScanDetails?.(scan)}
+                        onClick={() => onViewScanDetails?.({ scan, serviceName: name, containerImages: [image.name] })}
                       >
                         {/* ...existing scan card code... */}
                         <div className="flex items-center justify-between mb-2">
@@ -265,7 +341,6 @@ export function ServiceCard({
                             )}
                           </div>
                         </div>
-
                         <div className="grid grid-cols-4 gap-2 mb-2">
                           <div className="text-center">
                             <div className="text-lg font-bold text-severity-critical">{scan.critical}</div>
@@ -284,7 +359,6 @@ export function ServiceCard({
                             <div className="text-xs text-muted-foreground">Low</div>
                           </div>
                         </div>
-
                         <div className="flex items-center justify-between text-sm">
                           <div className="space-y-1">
                             <div>
@@ -302,8 +376,8 @@ export function ServiceCard({
                     ))}
                   </div>
                 </div>
-              )
-            ))}
+              );
+            })}
           </div>
           {/* Show '+N more scan(s)' link below first image if there are more than 1 image and at least one is collapsed */}
           {containerImages.length > 1 && (
@@ -345,6 +419,6 @@ export function ServiceCard({
           )}
         </div>
       </CardContent>
-    </Card>
+    </Card >
   );
 }

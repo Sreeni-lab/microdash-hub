@@ -16,7 +16,14 @@ interface ChartsSectionProps {
     color: string;
     components?: string[];
   }>;
-  vulnerabilityData: Array<{
+  twistlockVulnerabilityData: Array<{
+    component: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }>;
+  sysdigVulnerabilityData: Array<{
     component: string;
     critical: number;
     high: number;
@@ -26,7 +33,7 @@ interface ChartsSectionProps {
   onPieClick?: (data: any) => void;
 }
 
-export function ChartsSection({ healthData, sanityData, vulnerabilityData, onPieClick }: ChartsSectionProps) {
+export function ChartsSection({ healthData, sanityData, twistlockVulnerabilityData, sysdigVulnerabilityData, onPieClick }: ChartsSectionProps) {
   // Sample test details for demo purposes (table format)
   // In future, replace with API results
   const sampleTestDetails = {
@@ -151,17 +158,6 @@ export function ChartsSection({ healthData, sanityData, vulnerabilityData, onPie
               <Tooltip content={<CustomTooltip />} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="mt-4 space-y-2">
-            {healthData.map((entry, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: entry.color }}
-                />
-                <span>{entry.name}: {entry.value}</span>
-              </div>
-            ))}
-          </div>
         </CardContent>
       </Card>
       {/* Modal for Health Components removed, reverting to original behavior */}
@@ -191,17 +187,6 @@ export function ChartsSection({ healthData, sanityData, vulnerabilityData, onPie
               <Tooltip content={<CustomTooltip />} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="mt-4 space-y-2">
-            {sanityPieData.map((entry, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: entry.color }}
-                />
-                <span>{entry.name}: {entry.value}</span>
-              </div>
-            ))}
-          </div>
         </CardContent>
       </Card>
 
@@ -269,7 +254,7 @@ export function ChartsSection({ healthData, sanityData, vulnerabilityData, onPie
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={vulnerabilityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={twistlockVulnerabilityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <XAxis
                 dataKey="component"
                 angle={-45}
@@ -298,7 +283,7 @@ export function ChartsSection({ healthData, sanityData, vulnerabilityData, onPie
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={vulnerabilityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={sysdigVulnerabilityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <XAxis
                 dataKey="component"
                 angle={-45}
@@ -344,11 +329,13 @@ export function ChartsSection({ healthData, sanityData, vulnerabilityData, onPie
             <div className="w-full h-[500px]">
               <ResponsiveContainer width="100%" height={500}>
                 <BarChart
-                  data={vulnerabilityData}
+                  data={modalOpen === 'twistlock' ? twistlockVulnerabilityData : sysdigVulnerabilityData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   onClick={(e: any) => {
                     if (e && e.activeLabel) {
-                      const id = `service-card-${e.activeLabel.replace(/\s+/g, '-')}`;
+                      // Use only the last part after last slash for service name
+                      const serviceName = e.activeLabel.split('/').pop();
+                      const id = `service-card-${serviceName.replace(/\s+/g, '-')}`;
                       const el = document.getElementById(id);
                       if (el) {
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
